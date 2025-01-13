@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Enter on which OS user,cassandra is running, for example cassandra
+
+echo "Enter the username: "
+read username
+
+# Enter the nodetool user name
+
+echo "Enter the nodetool username:"
+read nodetool_username
+
+#Enter the nodetool password
+
+echo "Enter the nodetool password:"
+read nodetool_password
+
+## you can also directly give the values to variable
+
+#username="*****"
+#nodetool_username="***"
+#echo $nodetool_username
+#nodetool_password="*****"
+
+# Define the command to check if Cassandra is running
+
+check_command="/etc/cassandra/bin/nodetool -u "$nodetool_username" -pw "$nodetool_password" -Dcom.sun.jndi.rmiURLParsing=legacy describecluster|grep -i "UNREACHABLE""
+
+# Loop through the list of Cassandra nodes and check if Cassandra is running on each one
+for node in 182.2.0.1 182.2.0.2 182.2.0.3
+do
+  # Run the check command on the current node and capture the output
+  output=$(ssh -q -p 1035 $username@$node $check_command 2>&1)
+echo $node
+echo $output
+done
