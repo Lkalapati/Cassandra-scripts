@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Enter on which OS user,cassandra is running, for example cassandra
+
+username="xxxxx"
+nodetool_username="xxxx"
+nodetool_password="xxxxxx"
+
+check_command="/etc/cassandra/bin/nodetool -u "$nodetool_username" -pw "$nodetool_password" -Dcom.sun.jndi.rmiURLParsing=legacy status"
+repair_command="nohup /etc/cassandra/bin/nodetool -u "$nodetool_username" -pw "$nodetool_password" -Dcom.sun.jndi.rmiURLParsing=legacy repair -pr map > outputrepair.log 2>&1 &"
+
+# Loop through the list of Cassandra nodes and check if Cassandra is running on each one
+for node in 182.2.0.1 182.2.0.2 182.2.0.3
+do
+  # Run the check command on the current node and capture the output
+  output=$(ssh -q -p 22 $username@$node $check_command|grep $node|awk '{print $1}' 2>&1)
+echo $output
+  # Check if the output contains the word "UN", which indicates that the node is up and running
+  if [[ "$output" == *"UN"* ]]; then
+    echo "Cassandra is running on $node"
+    echo "Running nodetool repair -pr on $node"
+    ssh -q -p 22 $username@$node $repair_command
+    sleep 900
+  fi
+   while true; do
+    output1=$(ssh -q -p $username@$node "grep -i 'Repair command' /home/cassandra/outputrepair.log"|tail -1|awk '{print $6}' 2>&1)
+    if [[ "$output1" == *"finished"* ]]; then
+     echo "Repair completed on $node"
+     break  
+    else
+     echo "Repair is still running on $node"
+    sleep 300   
+  
+    fi
+   done
+done
