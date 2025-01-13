@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Enter the OS username where Cassandra is running
+echo "Enter the username: "
+read username
+
+echo "Enter the nodetool username:"
+read nodetool_username
+
+echo "Enter the nodetool password:"
+read nodetool_password
+
+# Define the command to check if Cassandra is running
+
+check_command="/etc/cassandra/bin/nodetool -u "$nodetool_username" -pw "$nodetool_password" -Dcom.sun.jndi.rmiURLParsing=legacy status"
+nodetooldrain="/etc/cassandra/bin/nodetool -u "$nodetool_username" -pw "$nodetool_password" -Dcom.sun.jndi.rmiURLParsing=legacy drain"
+
+
+# Loop through the list of Cassandra nodes and check if Cassandra is running on each one
+for node in 182.0.0.0 182.0.0.1 182.0.0.2
+do
+  # Run the check command on the current node and capture the output
+  output=$(ssh -q -p 22 $username@$node $check_command|grep $node|awk '{print $1}' 2>&1)
+echo $output
+  # Check if the output contains the word "UN", which indicates that the node is up and running
+  if [[ "$output" == *"UN"* ]]; then
+    echo "Cassandra is running on $node"
+    echo "Running nodetool drain on $node"
+    ssh -q -p 22 $username@$node $nodetooldrain
+    sleep 25
+    echo "Stopping Cassandra services on $node"
+    ssh -q -p 22 $username@$node "sudo systemctl stop cassandra"
+
+  # Wait for a few seconds to allow Cassandra to stop
+    sleep 15
+
+  # Start Cassandra on the current node
+    echo "Restarting Cassandra services on $node"
+    ssh -q -p 22 $username@$node "sudo systemctl start cassandra"
+
+  # Wait for a few seconds to allow Cassandra to start
+
+    sleep 30
+  fi
+   while true; do
+    output1=$(ssh -q -p 22 $username@$node $check_command|grep $node|awk '{print $1}' 2>&1)
+    if [[ "$output1" == *"UN"* ]]; then
+     echo "Cassandra started on $node"
+     break
+    else
+     echo "Cassandra is not running on $node, waiting"
+    sleep 15
+
+    fi
+   done
+done
